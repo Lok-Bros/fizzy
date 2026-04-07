@@ -19,6 +19,7 @@ proxy:
   ssl: false               # Set this to false if you *don't* want SSL
   host: fizzy.lokbros.com  # Set your server name here to use automatic SSL
   app_port: 3000
+  forward_headers: true
   healthcheck:
     path: /up
     interval: 5
