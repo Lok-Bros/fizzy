@@ -18,6 +18,11 @@ ssh:
 proxy:
   ssl: true                # Set this to false if you *don't* want SSL
   host: fizzy.lokbros.com  # Set your server name here to use automatic SSL
+  app_port: 3000
+  healthcheck:
+    path: /up
+    interval: 5
+    timeout: 30
 
 # Your application configuration (secrets come from .kamal/secrets).
 env:
