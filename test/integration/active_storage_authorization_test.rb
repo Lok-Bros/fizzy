@@ -17,6 +17,15 @@ class ActiveStorageAuthorizationTest < ActionDispatch::IntegrationTest
     assert_match %r{rails/active_storage}, response.location
   end
 
+  test "bearer token with board access can view blob" do
+    bearer_token = { "HTTP_AUTHORIZATION" => "Bearer #{identity_access_tokens(:davids_api_token).token}" }
+
+    get rails_blob_path(@blob, disposition: :inline), env: bearer_token
+
+    assert_response :redirect
+    assert_match %r{rails/active_storage}, response.location
+  end
+
   test "authenticated user without board access cannot view blob" do
     sign_in_as :mike
 
@@ -38,10 +47,52 @@ class ActiveStorageAuthorizationTest < ActionDispatch::IntegrationTest
     assert_match %r{rails/active_storage/}, response.location
   end
 
+  test "bearer token with board access can view representation" do
+    bearer_token = { "HTTP_AUTHORIZATION" => "Bearer #{identity_access_tokens(:davids_api_token).token}" }
+
+    get rails_representation_path(@blob.representation(resize_to_limit: [ 100, 100 ])), env: bearer_token
+
+    assert_response :redirect
+    assert_match %r{rails/active_storage/}, response.location
+  end
+
   test "authenticated user without board access cannot view representation" do
     sign_in_as :mike
 
     get rails_representation_path(@blob.representation(resize_to_limit: [ 100, 100 ]))
+    assert_response :forbidden
+  end
+
+  # Authorization must gate the preview parser itself, not just the returned bytes.
+  # set_representation runs @blob.representation(...).processed (ffmpeg/mutool/libvips);
+  # a forbidden or unauthenticated request must never reach it.
+  test "unauthenticated user does not run the representation parser" do
+    representation_path = rails_representation_path(@blob.representation(resize_to_limit: [ 100, 100 ]))
+    proxy_path = rails_storage_proxy_path(@blob.representation(resize_to_limit: [ 100, 100 ]))
+
+    ActiveStorage::Blob.any_instance.expects(:representation).never
+
+    get representation_path
+    assert_response :redirect
+    assert_match %r{/session/new}, response.location
+
+    get proxy_path
+    assert_response :redirect
+    assert_match %r{/session/new}, response.location
+  end
+
+  test "authenticated user without board access does not run the representation parser" do
+    sign_in_as :mike
+
+    representation_path = rails_representation_path(@blob.representation(resize_to_limit: [ 100, 100 ]))
+    proxy_path = rails_storage_proxy_path(@blob.representation(resize_to_limit: [ 100, 100 ]))
+
+    ActiveStorage::Blob.any_instance.expects(:representation).never
+
+    get representation_path
+    assert_response :forbidden
+
+    get proxy_path
     assert_response :forbidden
   end
 
@@ -190,6 +241,16 @@ class ActiveStorageAuthorizationTest < ActionDispatch::IntegrationTest
     blob = create_export_blob_for(users(:david))
 
     get rails_blob_path(blob, disposition: :attachment)
+    assert_response :redirect
+    assert_match %r{rails/active_storage}, response.location
+  end
+
+  test "export owner can download their export with bearer token" do
+    blob = create_export_blob_for(users(:david))
+    bearer_token = { "HTTP_AUTHORIZATION" => "Bearer #{identity_access_tokens(:davids_api_token).token}" }
+
+    get rails_blob_path(blob, disposition: :attachment), env: bearer_token
+
     assert_response :redirect
     assert_match %r{rails/active_storage}, response.location
   end

@@ -8,6 +8,11 @@ require "vcr"
 require "mocha/minitest"
 require "turbo/broadcastable/test_helper"
 
+unless [ "0", "false" ].include?(ENV["CI_PROGRESS_BAR"])
+  require "minitest/reporters"
+  Minitest::Reporters.use! Minitest::Reporters::ProgressReporter.new(detailed_skip: false)
+end
+
 WebMock.allow_net_connect!
 
 VCR.configure do |config|
@@ -45,7 +50,7 @@ module ActiveSupport
     fixtures :all
 
     include ActiveJob::TestHelper
-    include ActionTextTestHelper, CachingTestHelper, CardTestHelper, ChangeTestHelper, SessionTestHelper
+    include ActionTextTestHelper, CachingTestHelper, CardTestHelper, ChangeTestHelper, DnsTestHelper, SessionTestHelper
     include Turbo::Broadcastable::TestHelper
 
     # Jobs must carry their own account context via AccountTenanted,
@@ -70,7 +75,7 @@ end
 
 class ActionDispatch::IntegrationTest
   setup do
-    integration_session.default_url_options[:script_name] = "/#{ActiveRecord::FixtureSet.identify("37signals")}"
+    integration_session.default_url_options = integration_session.default_url_options.merge(script_name: "/#{ActiveRecord::FixtureSet.identify("37signals")}")
   end
 
   private
@@ -87,7 +92,7 @@ end
 
 class ActionDispatch::SystemTestCase
   setup do
-    self.default_url_options[:script_name] = "/#{ActiveRecord::FixtureSet.identify("37signals")}"
+    self.default_url_options = default_url_options.merge(script_name: "/#{ActiveRecord::FixtureSet.identify("37signals")}")
   end
 end
 

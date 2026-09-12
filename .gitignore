@@ -41,4 +41,3 @@
 
 /config/credentials/*.key
 .DS_Store
-.mise.toml
